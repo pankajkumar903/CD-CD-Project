@@ -7,63 +7,32 @@ provider "azurerm" {
   use_oidc = true
 }
 
-# --------------------------------------------------------------------
-# 0. SAFE lookup existing Resource Group (no errors if missing)
-# --------------------------------------------------------------------
-data "azurerm_resource_group" "existing_rg" {
-  name = var.resource_group_name
-
-  # This data source will throw error if RG doesn't exist.
-  # try() will catch it in locals so we don't need lifecycle.
-}
-
-# --------------------------------------------------------------------
-# 1. CREATE RG only if it does NOT exist
-# --------------------------------------------------------------------
+# --------------------------------------
+# Resource Group
+# --------------------------------------
 resource "azurerm_resource_group" "rg" {
-  count    = try(data.azurerm_resource_group.existing_rg.name, "") == "" ? 1 : 0
   name     = var.resource_group_name
   location = var.location
 }
 
-# Compute final RG name (existing OR newly created)
-locals {
-  final_rg_name = try(data.azurerm_resource_group.existing_rg.name, azurerm_resource_group.rg[0].name)
-}
-
-# --------------------------------------------------------------------
-# 2. SAFE lookup existing ACR
-# --------------------------------------------------------------------
-data "azurerm_container_registry" "existing" {
-  name                = var.acr_name
-  resource_group_name = local.final_rg_name
-}
-
-# --------------------------------------------------------------------
-# 3. CREATE ACR only if NOT existing
-# --------------------------------------------------------------------
+# --------------------------------------
+# Azure Container Registry
+# --------------------------------------
 resource "azurerm_container_registry" "acr" {
-  count               = try(data.azurerm_container_registry.existing.id, "") == "" ? 1 : 0
   name                = var.acr_name
-  resource_group_name = local.final_rg_name
-  location            = var.location
+  resource_group_name = azurerm_resource_group.rg.name
+  location            = azurerm_resource_group.rg.location
   sku                 = "Basic"
   admin_enabled       = false
 }
 
-# ACR final ID and login server
-locals {
-  acr_id           = try(data.azurerm_container_registry.existing.id, azurerm_container_registry.acr[0].id)
-  acr_login_server = try(data.azurerm_container_registry.existing.login_server, azurerm_container_registry.acr[0].login_server)
-}
-
-# --------------------------------------------------------------------
-# 4. AKS Cluster
-# --------------------------------------------------------------------
+# --------------------------------------
+# AKS Cluster
+# --------------------------------------
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = var.aks_name
-  location            = var.location
-  resource_group_name = local.final_rg_name
+  location            = azurerm_resource_group.rg.location
+  resource_group_name = azurerm_resource_group.rg.name
   dns_prefix          = var.aks_name
 
   default_node_pool {
@@ -77,11 +46,11 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 }
 
-# --------------------------------------------------------------------
-# 5. Allow AKS to pull from ACR
-# --------------------------------------------------------------------
+# --------------------------------------
+# Allow AKS to pull images from ACR
+# --------------------------------------
 resource "azurerm_role_assignment" "aks_to_acr" {
   principal_id         = azurerm_kubernetes_cluster.aks.identity[0].principal_id
   role_definition_name = "AcrPull"
-  scope                = local.acr_id
+  scope                = azurerm_container_registry.acr.id
 }
