@@ -1,28 +1,24 @@
 trigger:
-  branches:
-    include:
-      - main
+  - main
 
 pool:
   vmImage: ubuntu-latest
 
 variables:
-  azureServiceConnection: azure-connection   # Your ARM service connection name
-  tfDir: infra                                # Folder containing Terraform files
+  azureServiceConnection: azure-connection
+  tfDir: infra
 
 steps:
 - checkout: self
   fetchDepth: 0
 
-# Install Terraform
 - task: TerraformInstaller@1
-  displayName: "Install Terraform"
+  displayName: Install Terraform
   inputs:
-    terraformVersion: '1.7.3'
+    terraformVersion: 1.7.3
 
-# Login to Azure + Run Terraform
 - task: AzureCLI@2
-  displayName: "Terraform init, plan, apply"
+  displayName: Terraform Init/Plan/Apply using OIDC
   inputs:
     azureSubscription: $(azureServiceConnection)
     scriptType: bash
@@ -30,20 +26,17 @@ steps:
     inlineScript: |
       set -euo pipefail
 
-      echo "Azure login successful using service connection"
+      echo "Logged into Azure via federated credentials (OIDC)"
 
       cd $(tfDir)
 
-      # Enable Terraform authentication using Azure CLI
-      export ARM_USE_AZURECLI=1
-
-      echo "----- Terraform Init -----"
+      echo "Initializing Terraform backend..."
       terraform init -input=false
 
-      echo "----- Terraform Plan -----"
+      echo "Running terraform plan..."
       terraform plan -out=tfplan -input=false
 
-      echo "----- Terraform Apply -----"
+      echo "Running terraform apply..."
       terraform apply -auto-approve tfplan
 
-      echo "Terraform infrastructure creation completed!"
+      echo "Terraform completed successfully"
