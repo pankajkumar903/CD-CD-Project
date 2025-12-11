@@ -1,0 +1,49 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  azureServiceConnection: azure-connection   # Your ARM service connection name
+  tfDir: infra                                # Folder containing Terraform files
+
+steps:
+- checkout: self
+  fetchDepth: 0
+
+# Install Terraform
+- task: TerraformInstaller@1
+  displayName: "Install Terraform"
+  inputs:
+    terraformVersion: '1.7.3'
+
+# Login to Azure + Run Terraform
+- task: AzureCLI@2
+  displayName: "Terraform init, plan, apply"
+  inputs:
+    azureSubscription: $(azureServiceConnection)
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+      set -euo pipefail
+
+      echo "Azure login successful using service connection"
+
+      cd $(tfDir)
+
+      # Enable Terraform authentication using Azure CLI
+      export ARM_USE_AZURECLI=1
+
+      echo "----- Terraform Init -----"
+      terraform init -input=false
+
+      echo "----- Terraform Plan -----"
+      terraform plan -out=tfplan -input=false
+
+      echo "----- Terraform Apply -----"
+      terraform apply -auto-approve tfplan
+
+      echo "Terraform infrastructure creation completed!"
