@@ -7,39 +7,35 @@ provider "azurerm" {
   use_oidc = true
 }
 
-variable "acr_name" {
-  default = "devopsacr00123"
-}
-
 resource "azurerm_resource_group" "rg" {
-  name     = "rg-devops-aks"
-  location = "West US 2"
+  name     = var.resource_group_name
+  location = var.location
 }
 
 # --------------------------------------------------------------------
-# 1. Try to read existing ACR (safe lookup)
+# 1. Try to lookup existing ACR (SAFE lookup)
 # --------------------------------------------------------------------
 data "azurerm_container_registry" "existing" {
   name                = var.acr_name
-  resource_group_name = azurerm_resource_group.rg.name
+  resource_group_name = var.resource_group_name
 
-  depends_on = []
+  ignore_errors = true
 }
 
 # --------------------------------------------------------------------
-# 2. Create ACR only if it does NOT already exist
+# 2. Create ACR ONLY IF it does not exist
 # --------------------------------------------------------------------
 resource "azurerm_container_registry" "acr" {
   count               = try(data.azurerm_container_registry.existing.id, null) == null ? 1 : 0
   name                = var.acr_name
-  resource_group_name = azurerm_resource_group.rg.name
-  location            = azurerm_resource_group.rg.location
+  resource_group_name = var.resource_group_name
+  location            = var.location
   sku                 = "Basic"
   admin_enabled       = false
 }
 
 # --------------------------------------------------------------------
-# 3. Select ACR ID dynamically (existing or new)
+# 3. Determine final ACR (existing OR newly created)
 # --------------------------------------------------------------------
 locals {
   acr_id           = try(data.azurerm_container_registry.existing.id, azurerm_container_registry.acr[0].id)
@@ -47,18 +43,18 @@ locals {
 }
 
 # --------------------------------------------------------------------
-# 4. AKS Cluster (correct VM size)
+# 4. AKS Cluster
 # --------------------------------------------------------------------
 resource "azurerm_kubernetes_cluster" "aks" {
-  name                = "devops-aks"
-  location            = azurerm_resource_group.rg.location
-  resource_group_name = azurerm_resource_group.rg.name
-  dns_prefix          = "devops-aks"
+  name                = var.aks_name
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  dns_prefix          = var.aks_name
 
   default_node_pool {
-    name       = "nodepool1"
-    node_count = 1
-    vm_size    = "Standard_B2s_v2"   # Supported in your subscription
+    name       = var.agent_pool_name
+    node_count = var.agent_node_count
+    vm_size    = var.agent_vm_size
   }
 
   identity {
@@ -67,7 +63,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
 }
 
 # --------------------------------------------------------------------
-# 5. Role assignment (AKS → ACR)
+# 5. Assign AKS permission to pull images from ACR
 # --------------------------------------------------------------------
 resource "azurerm_role_assignment" "aks_to_acr" {
   principal_id         = azurerm_kubernetes_cluster.aks.identity[0].principal_id
