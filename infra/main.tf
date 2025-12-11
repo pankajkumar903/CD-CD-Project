@@ -13,25 +13,18 @@ resource "azurerm_resource_group" "rg" {
 }
 
 # --------------------------------------------------------------------
-# 1. SAFE Attempt to lookup existing ACR (will NOT stop plan/apply)
+# 1. SAFE Attempt to lookup existing ACR (no errors even if missing)
 # --------------------------------------------------------------------
 data "azurerm_container_registry" "existing" {
   name                = var.acr_name
   resource_group_name = var.resource_group_name
-
-  lifecycle {
-    postcondition {
-      condition     = true
-      error_message = "Ignoring ACR lookup failure"
-    }
-  }
 }
 
 # --------------------------------------------------------------------
 # 2. Create ACR ONLY if it does NOT exist
 # --------------------------------------------------------------------
 resource "azurerm_container_registry" "acr" {
-  count               = can(data.azurerm_container_registry.existing.id) ? 0 : 1
+  count               = try(data.azurerm_container_registry.existing.id, "") == "" ? 1 : 0
   name                = var.acr_name
   resource_group_name = var.resource_group_name
   location            = var.location
@@ -40,11 +33,11 @@ resource "azurerm_container_registry" "acr" {
 }
 
 # --------------------------------------------------------------------
-# 3. Determine final ACR (existing OR newly created)
+# 3. Determine final ACR details (Works for BOTH existing or new)
 # --------------------------------------------------------------------
 locals {
-  acr_id           = can(data.azurerm_container_registry.existing.id) ? data.azurerm_container_registry.existing.id : azurerm_container_registry.acr[0].id
-  acr_login_server = can(data.azurerm_container_registry.existing.login_server) ? data.azurerm_container_registry.existing.login_server : azurerm_container_registry.acr[0].login_server
+  acr_id           = try(data.azurerm_container_registry.existing.id, azurerm_container_registry.acr[0].id)
+  acr_login_server = try(data.azurerm_container_registry.existing.login_server, azurerm_container_registry.acr[0].login_server)
 }
 
 # --------------------------------------------------------------------
@@ -68,7 +61,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
 }
 
 # --------------------------------------------------------------------
-# 5. Allow AKS to pull images from ACR
+# 5. Allow AKS to pull from ACR
 # --------------------------------------------------------------------
 resource "azurerm_role_assignment" "aks_to_acr" {
   principal_id         = azurerm_kubernetes_cluster.aks.identity[0].principal_id
