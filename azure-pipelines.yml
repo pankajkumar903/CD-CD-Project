@@ -5,7 +5,7 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  azureServiceConnection: azure-connection
+  azureServiceConnection: az-terraform-spn
   tfDir: infra
 
 steps:
@@ -26,17 +26,20 @@ steps:
     inlineScript: |
       set -euo pipefail
 
-      echo "Logged into Azure via federated credentials (OIDC)"
+      echo "Logged into Azure using Federated Credentials (OIDC)"
 
       cd $(tfDir)
 
-      echo "Initializing Terraform backend..."
+      # CRITICAL FIX 👉 Tell Terraform to use OIDC NOT Azure CLI
+      export ARM_USE_OIDC=true
+
+      echo "------ Terraform Init ------"
       terraform init -input=false
 
-      echo "Running terraform plan..."
+      echo "------ Terraform Plan ------"
       terraform plan -out=tfplan -input=false
 
-      echo "Running terraform apply..."
+      echo "------ Terraform Apply ------"
       terraform apply -auto-approve tfplan
 
-      echo "Terraform completed successfully"
+      echo "Terraform completed successfully!"
