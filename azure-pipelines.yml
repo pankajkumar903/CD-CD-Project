@@ -17,38 +17,36 @@ steps:
   inputs:
     terraformVersion: 1.7.3
 
+# STEP 1: Request OIDC token and export Terraform auth vars
 - task: AzureCLI@2
-  displayName: Terraform Init/Plan/Apply using OIDC
+  displayName: "Request OIDC Token"
   inputs:
     azureSubscription: $(azureServiceConnection)
     scriptType: bash
     scriptLocation: inlineScript
+    addSpnToEnvironment: true
     inlineScript: |
-      set -euo pipefail
+      echo "Setting Terraform environment variables from Service Connection"
+      echo "##vso[task.setvariable variable=ARM_CLIENT_ID]$servicePrincipalId"
+      echo "##vso[task.setvariable variable=ARM_TENANT_ID]$tenantId"
+      echo "##vso[task.setvariable variable=ARM_SUBSCRIPTION_ID]$subscriptionId"
+      echo "##vso[task.setvariable variable=ARM_OIDC_TOKEN]$idToken"
 
-      echo "Logged into Azure using Federated Credentials (OIDC)"
+# STEP 2: Run Terraform using OIDC
+- script: |
+    set -euo pipefail
 
-      cd $(tfDir)
+    echo "Using OIDC Authentication for Terraform"
+    cd $(tfDir)
 
-      echo "Setting Terraform OIDC environment variables"
+    export ARM_USE_OIDC=true
+    export ARM_CLIENT_ID=$(ARM_CLIENT_ID)
+    export ARM_TENANT_ID=$(ARM_TENANT_ID)
+    export ARM_SUBSCRIPTION_ID=$(ARM_SUBSCRIPTION_ID)
+    export ARM_OIDC_TOKEN=$(ARM_OIDC_TOKEN)
 
-      # REQUIRED: tell Terraform to use OIDC
-      export ARM_USE_OIDC=true
+    terraform init -input=false
+    terraform plan -out=tfplan -input=false
+    terraform apply -auto-approve tfplan
 
-      # REQUIRED: disable Azure CLI auth (this is causing your error)
-      export ARM_USE_AZURECLI=false
-
-      # Optional but recommended for clarity
-      export ARM_TENANT_ID="756dd590-85ca-48f4-89cb-f0753277d98c"
-      export ARM_SUBSCRIPTION_ID="8618031d-ad43-42d5-b710-12eb173c5621"
-
-      echo "------ Terraform Init ------"
-      terraform init -input=false
-
-      echo "------ Terraform Plan ------"
-      terraform plan -out=tfplan -input=false
-
-      echo "------ Terraform Apply ------"
-      terraform apply -auto-approve tfplan
-
-      echo "Terraform completed successfully!"
+  displayName: "Terraform Init/Plan/Apply with OIDC"
