@@ -30,8 +30,17 @@ steps:
 
       cd $(tfDir)
 
-      # CRITICAL FIX 👉 Tell Terraform to use OIDC NOT Azure CLI
+      echo "Setting Terraform OIDC environment variables"
+
+      # REQUIRED: tell Terraform to use OIDC
       export ARM_USE_OIDC=true
+
+      # REQUIRED: disable Azure CLI auth (this is causing your error)
+      export ARM_USE_AZURECLI=false
+
+      # Optional but recommended for clarity
+      export ARM_TENANT_ID="756dd590-85ca-48f4-89cb-f0753277d98c"
+      export ARM_SUBSCRIPTION_ID="8618031d-ad43-42d5-b710-12eb173c5621"
 
       echo "------ Terraform Init ------"
       terraform init -input=false
