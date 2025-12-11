@@ -1,46 +1,39 @@
-# Resource Group Name
 variable "resource_group_name" {
-  description = "Name of the resource group"
+  description = "Name of the resource group to use or create"
   type        = string
   default     = "rg-devops-aks"
 }
 
-# Location
 variable "location" {
-  description = "Azure region"
+  description = "Azure region for resources"
   type        = string
   default     = "West US 2"
 }
 
-# ACR name (must be globally unique)
 variable "acr_name" {
-  description = "Azure Container Registry Name"
+  description = "Azure Container Registry name (must be globally unique)"
   type        = string
   default     = "devopsacr00123"
 }
 
-# AKS Cluster Name
 variable "aks_name" {
-  description = "Name of AKS Cluster"
+  description = "Name of the AKS cluster"
   type        = string
   default     = "devops-aks"
 }
 
-# Node Pool Name
 variable "agent_pool_name" {
-  description = "Name of system node pool"
+  description = "AKS default node pool name"
   type        = string
   default     = "nodepool1"
 }
 
-# Node Count
 variable "agent_node_count" {
-  description = "Initial node count"
+  description = "Number of nodes in AKS node pool"
   type        = number
   default     = 1
 }
 
-# VM Size (compatible with your subscription)
 variable "agent_vm_size" {
   description = "VM size for AKS nodes"
   type        = string
