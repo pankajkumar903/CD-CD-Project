@@ -29,7 +29,7 @@ dns_prefix = "devops-aks"
 default_node_pool {
   name       = "nodepool1"
   node_count = 1
-  vm_size    = "Standard_B2ms"
+  vm_size    = "Standard_DS2_v2"
 }
 
 
