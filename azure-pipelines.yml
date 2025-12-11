@@ -5,7 +5,7 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  azureServiceConnection: az-terraform-spn
+  azureServiceConnection: azure-connection
   tfDir: infra
 
 steps:
