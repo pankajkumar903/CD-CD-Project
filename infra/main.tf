@@ -9,7 +9,7 @@ use_oidc = true
 
 resource "azurerm_resource_group" "rg" {
 name = "rg-devops-aks"
-location = "East US"
+location = "West US 2"
 }
 
 resource "azurerm_container_registry" "acr" {
@@ -27,10 +27,11 @@ resource_group_name = azurerm_resource_group.rg.name
 dns_prefix = "devops-aks"
 
 default_node_pool {
-name = "nodepool1"
-node_count = 1
-vm_size = "Standard_DS2_v2"
+  name       = "nodepool1"
+  node_count = 1
+  vm_size    = "Standard_B2ms"
 }
+
 
 identity {
 type = "SystemAssigned"
